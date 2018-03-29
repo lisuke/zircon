@@ -4,6 +4,7 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT
 
+#include <asm.h>
 #include <arch/asm_macros.h>
 #include <zircon/boot/bootdata.h>
 
@@ -24,6 +25,8 @@ wtmp2       .req w16
 #define BOOTDATA_SIZE           32  // sizeof(bootdata_t)
 #define BOOTDATA_TYPE_OFFSET    0
 #define BOOTDATA_LENGTH_OFFSET  4
+
+#define STACK_SIZE              4096    // stack for running C code
 
 .section .text
 _start:
@@ -48,6 +51,12 @@ _start:
     ldr     wtmp, [bd_base, BOOTDATA_LENGTH_OFFSET] // read container length field
     ubfx    tmp, tmp, #0, #32                       // 64 bit extend
     add     bd_size, tmp, #BOOTDATA_SIZE            // add container header size
+
+
+    adr_global tmp, stack_end
+    mov     sp, tmp
+
+    bl      fubbs
 
     // check to see if there are additional bootdata items following the kernel
     // if there are, we must relocate the kernel beyond the end of the bootdata
@@ -104,3 +113,10 @@ _jump_to_kernel:
 
 _fail:
     b       _fail
+
+.bss
+LOCAL_DATA(stack)
+    .skip 8192
+    .balign 16
+LOCAL_DATA(stack_end)
+END_DATA(stack)
