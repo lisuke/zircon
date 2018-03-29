@@ -26,9 +26,11 @@ wtmp2       .req w16
 #define BOOTDATA_LENGTH_OFFSET  4
 
 .section .text
+_start:
 
     // fetch beginning of bootdata into bd_base
-    adr     bd_base, _bootdata
+    adr     bd_base, _start
+    add     bd_base, bd_base, #BOOT_SHIM_SIZE
 
     // sanity check the bootdata headers
     // the first bootdata record should have type BOOTDATA_CONTAINER
@@ -102,8 +104,3 @@ _jump_to_kernel:
 
 _fail:
     b       _fail
-
-    // kernel must be 64K aligned
-    .balign 65536,0
-
-_bootdata:

@@ -890,7 +890,7 @@ int write_bootitem(int fd, bool compressed,
     return 0;
 }
 
-int write_bootdata(const char* fn, item_t* item, const char* header_path) {
+int write_bootdata(const char* fn, item_t* item, const char* header_path, int header_align) {
     //TODO: re-enable for debugging someday
     bool compressed = true;
 
@@ -928,6 +928,16 @@ int write_bootdata(const char* fn, item_t* item, const char* header_path) {
         }
 
         close(header_fd);
+    }
+
+    if (header_align > 0) {
+        // round up to next multiple of header_align
+        header_length = ((header_length + header_align - 1) / header_align) * header_align;
+        // pad zeroes after the header
+        if (lseek(fd, header_length, SEEK_SET) != header_length) {
+            fprintf(stderr, "error: cannot seek\n");
+            goto fail;
+        }
     }
 
     // Leave room for file header
@@ -1131,6 +1141,9 @@ void usage(void) {
     "         --board <board-name>  specify board name for platform ID record\n"
     "         --ramdisk             files are raw disk images, not bootdata\n"
     "         --header <filename>   optional binary header to prepend at beginning of output file\n"
+    "         --header-align <val>  optional alignment for the binary header.\n"
+    "                               header will be padded to align beginning\n"
+    "                               of bootdata to this alignment boundary\n"
     "\n"
     "inputs:  <filename>            file containing bootdata (binary)\n"
     "                               or a manifest (target=srcpath lines)\n"
@@ -1157,6 +1170,7 @@ int main(int argc, char **argv) {
     const char* pid_arg = NULL;
     const char* board_arg = NULL;
     const char* header_path = NULL;
+    int header_align = 0;
 
     if (argc == 1) {
         usage();
@@ -1247,6 +1261,22 @@ int main(int argc, char **argv) {
                 return -1;
             }
             header_path = argv[1];
+            argc--;
+            argv++;
+        } else if (!strcmp(cmd, "--header-align")) {
+            if (header_align) {
+                fprintf(stderr, "error: only one header alignment valuecan be specified\n");
+                return -1;
+            }
+            if (argc < 2) {
+                fprintf(stderr, "error: no header alignement given\n");
+                return -1;
+            }
+            header_align = atoi(argv[1]);
+            if (header_align <= 0) {
+                fprintf(stderr, "error: bad --header-align value %s\n", argv[1]);
+                return -1;
+            }
             argc--;
             argv++;
         } else if (!strcmp(cmd,"--vid")) {
@@ -1388,5 +1418,5 @@ int main(int argc, char **argv) {
         }
     }
 
-    return write_bootdata(output_file, first_item, header_path);
+    return write_bootdata(output_file, first_item, header_path, header_align);
 }
